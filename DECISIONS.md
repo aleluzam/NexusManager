@@ -40,6 +40,8 @@ Oxlint and React Compiler are modern tools; build configurations must be explici
 
 ## 2026-09-16 — Strict Three-Agent Execution Workflow
 
+**Status**: Superseded on 2026-09-20 by the OpenCode agent configuration in `.opencode/opencode.json` (`primary` orchestrator + specialized subagents: `backend-architect`, `frontend-developer`, `database-admin`, `tester-senior`, `code-reviewer`).
+
 ### Context
 
 To prevent context drift, hallucinated changes, and broken builds when using LLM agents.

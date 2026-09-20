@@ -1,2 +1,14 @@
-node_modules/
+.DS_Store
+
+# Python
+.venv/
+env/
 __pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# Design leftovers
+design/n-removebg-preview.png

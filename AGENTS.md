@@ -21,7 +21,7 @@ NexusManager is a social media management web application targeted at small busi
   - Virtual Environment: `backend/.venv` (ignored in `.gitignore`).
 - `design/` — Static mockups per view (`login/`, `hero_section/`, `dashboard/`).
   - Each view includes `DESIGN.md` (design system tokens), `code.html` (HTML/Tailwind preview), and `screen.png`.
-- `.opencode/` — OpenCode configuration (`opencode.json` and `.opencode/agent/` subagents).
+- `.opencode/` — OpenCode configuration (`opencode.json` and `.opencode/agents/` subagents).
 - Root files — `AGENTS.md` (global rules and context), `PROGRESS.md` (project state), `DECISIONS.md` (architecture decision records), `README.md`, `.gitignore`.
 
 ---

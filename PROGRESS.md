@@ -5,11 +5,17 @@
 - **Backend**: Functional FastAPI application. `GET /hello` returns `{"message": "Hello, World!"}` (verified end-to-end).
 - **Frontend**: Scaffolded with official Vite template (React 19 + TypeScript + Vite 8). React Compiler and Oxlint configured. Currently displays template demo (`App.tsx`); product views are not yet ported.
 - **Design**: Mockups completed under `design/` (`login/`, `hero_section/`, `dashboard/`) containing design tokens, previews, and screenshots.
-- **Agents Workflow**: Planner/Executor/Reviewer loop configured under `.opencode/agent/`.
+- **Agents Workflow**: OpenCode configured with `primary` orchestrator agent plus 5 specialized agents (`backend-architect`, `frontend-developer`, `database-admin`, `tester-senior`, `code-reviewer`) under `.opencode/agents/`, wired in `.opencode/opencode.json`.
 
 ---
 
 ## Completed Updates
+
+### 2026-09-20
+
+- Audited project state against root documentation (`AGENTS.md`, `PROGRESS.md`, `DECISIONS.md`, `README.md`). Verified backend end-to-end (`GET /hello` → 200) and frontend `lint`/`build` passing.
+- Renamed `DESICIONS.md` → `DECISIONS.md` and `PROGRESS.MD` → `PROGRESS.md` to match documented names.
+- Updated `README.md` (correct venv path `backend/.venv`), aligned `.opencode/agent/` → `.opencode/agents/` references, and expanded root `.gitignore` (`.DS_Store`, `.venv`, `.env`).
 
 ### 2026-09-17
 

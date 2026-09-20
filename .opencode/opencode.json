@@ -1,4 +1,5 @@
 {
+  "$schema": "https://opencode.ai/config.json",
   "defaultAgent": "primary",
   "agents": {
     "primary": ".opencode/agents/primary.md",
