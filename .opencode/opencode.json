@@ -1,0 +1,11 @@
+{
+  "defaultAgent": "primary",
+  "agents": {
+    "primary": ".opencode/agents/primary.md",
+    "backend-architect": ".opencode/agents/backend-architect.md",
+    "frontend-developer": ".opencode/agents/frontend-developer.md",
+    "database-admin": ".opencode/agents/database-admin.md",
+    "tester-senior": ".opencode/agents/tester-senior.md",
+    "code-reviewer": ".opencode/agents/code-reviewer.md"
+  }
+}
