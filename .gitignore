@@ -12,3 +12,6 @@ dist/
 
 # Design leftovers
 design/n-removebg-preview.png
+
+# Databases locales
+*.db

@@ -1,111 +1,210 @@
+/* NexusManager — "Unified Command System" tokens
+   Paleta exacta de identidad: Primary Purple #511877 · Accent Coral #FF5722
+   Tipografía: Plus Jakarta Sans (según DESIGN.md de design/) */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  /* Brand primario */
+  --nx-primary: #511877;
+  --nx-primary-hover: #3d105a;
+  --nx-primary-active: #2b0b40;
+  --nx-primary-deep: #370059;
+  --nx-on-primary: #ffffff;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Accento de conversión */
+  --nx-coral: #ff5722;
+  --nx-coral-hover: #e64a19;
+  --nx-coral-active: #d84315;
+  --nx-on-coral: #ffffff;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  /* Lienzo operativo */
+  --nx-bg: #f8f9fb;
+  --nx-surface: #ffffff;
+  --nx-surface-subtle: #f1f5f9;
+  --nx-surface-mist: #f5edfa;
+  --nx-surface-purple: #faf5ff;
+  --nx-surface-coral: #fff4f0;
+
+  /* Jerarquía neutral */
+  --nx-ink: #1e293b;
+  --nx-ink-2: #475569;
+  --nx-ink-3: #94a3b8;
+  --nx-border: #e2e8f0;
+  --nx-border-strong: #cbd5e1;
+
+  /* Tintas de marca sobre fondos oscuros */
+  --nx-purple-100: #f3e8ff;
+  --nx-purple-200: #e9d5ff;
+  --nx-purple-line: rgba(110, 42, 159, 0.35);
+
+  /* Estados operativos */
+  --nx-live-bg: #ecfdf5;
+  --nx-live-ink: #047857;
+  --nx-live-border: #a7f3d0;
+  --nx-proc-bg: #faf5ff;
+  --nx-proc-ink: #511877;
+  --nx-proc-border: #e9d5ff;
+  --nx-fail-bg: #fef2f2;
+  --nx-fail-ink: #b91c1c;
+  --nx-fail-border: #fecaca;
+  --nx-sched-bg: #f1f5f9;
+  --nx-sched-ink: #475569;
+  --nx-sched-border: #e2e8f0;
+
+  /* Tipografía */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Esquinas arquitectónicas (escala nivel 1) */
+  --nx-r-sm: 0.25rem;
+  --nx-r-md: 0.375rem;
+  --nx-r-lg: 0.5rem;
+  --nx-r-xl: 0.75rem;
+  --nx-r-full: 999rem;
+
+  /* Rejilla 8px */
+  --nx-space-xs: 0.25rem;
+  --nx-space-sm: 0.5rem;
+  --nx-space-md: 0.75rem;
+  --nx-space-lg: 1.25rem;
+  --nx-space-xl: 2rem;
+
+  /* Elevación estructural */
+  --nx-shadow-raise: 0 4px 12px rgba(30, 41, 59, 0.08);
+  --nx-shadow-pop: 0 8px 24px rgba(30, 41, 59, 0.12);
+  --nx-shadow-scrim: 0 24px 48px rgba(30, 41, 59, 0.18);
+
+  font-family: var(--font-sans);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--nx-bg);
+  color: var(--nx-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  overscroll-behavior: none;
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
+h2,
+h3,
 p {
   margin: 0;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Escala tipográfica (equivalente al config de Stitch) */
+.headline-xl {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.headline-lg {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  line-height: 36px;
+  letter-spacing: -0.015em;
+  font-weight: 700;
+}
+
+.headline-md {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+.headline-sm {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: -0.005em;
+  font-weight: 600;
+}
+
+.label-md {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+
+.label-sm {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.body-lg {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+.body-md {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+}
+
+.body-sm {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+}
+
+.code-sm {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
+/* Figuras tabulares para métricas densas */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }

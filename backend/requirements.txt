@@ -1,2 +1,13 @@
 fastapi
 uvicorn[standard]
+sqlalchemy[asyncio]
+aiosqlite
+argon2-cffi
+pyjwt
+pydantic[email]
+pydantic-settings
+python-dotenv
+python-multipart
+pytest
+pytest-asyncio
+httpx

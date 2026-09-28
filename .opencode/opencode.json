@@ -8,5 +8,14 @@
     "database-admin": ".opencode/agents/database-admin.md",
     "tester-senior": ".opencode/agents/tester-senior.md",
     "code-reviewer": ".opencode/agents/code-reviewer.md"
+  },
+  "mcp": {
+    "google-stitch": {
+      "type": "remote",
+      "url": "https://stitch.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "{env:STITCH_API_KEY}"
+      }
+    }
   }
 }

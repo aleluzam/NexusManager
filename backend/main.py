@@ -1,7 +1,3 @@
-from fastapi import FastAPI
+"""Punto de entrada para `uvicorn main:app` (compatibilidad con AGENTS.md)."""
 
-app = FastAPI()
-
-@app.get("/hello")
-async def hello():
-    return {"message": "Hello, World!"}
+from app.main import app  # noqa: F401
