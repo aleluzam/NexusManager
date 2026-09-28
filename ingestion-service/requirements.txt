@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-multipart
+aiofiles
+sqlalchemy>=2.0
+psycopg[binary]
+pgvector
+dramatiq[redis]
+python-docx
