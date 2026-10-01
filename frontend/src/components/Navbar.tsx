@@ -11,7 +11,7 @@ const NAV_LINKS: { label: string; path: string; active?: boolean }[] = [
 ]
 
 function Navbar() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
   const authenticated = status === 'authenticated'
 
   return (
@@ -20,7 +20,7 @@ function Navbar() {
         <div className="navbar-brand">
           <img
             src="/logo.svg"
-            alt="NexusManager Logo"
+            alt="Logotipo de NexusManager"
             className="navbar-logo"
           />
           <span className="navbar-wordmark">
@@ -57,11 +57,16 @@ function Navbar() {
             </>
           )}
           {authenticated && (
-            <img
-              src={profileAvatar}
-              alt="Profile"
-              className="navbar-avatar"
-            />
+            /* Única parada de tab hacia /settings: el texto del enlace lo
+               aporta el alt de la imagen, que antes quedaba eclipsado por el
+               aria-label del Link. */
+            <Link className="navbar-avatar-link" to="/settings">
+              <img
+                src={profileAvatar}
+                alt={`Ajustes de ${user?.full_name || 'tu cuenta'}`}
+                className="navbar-avatar"
+              />
+            </Link>
           )}
         </div>
       </div>

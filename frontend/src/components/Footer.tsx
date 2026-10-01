@@ -4,7 +4,11 @@ function Footer() {
       <div className="footer-inner">
         <div className="footer-top">
           <div className="footer-brand">
-            <img src="/logo.svg" alt="NexusManager Logo" className="navbar-logo" />
+            <img
+              src="/logo.svg"
+              alt="Logotipo de NexusManager"
+              className="navbar-logo"
+            />
             <span className="footer-wordmark">
               Nexus<span className="brand-accent">Manager</span>
             </span>

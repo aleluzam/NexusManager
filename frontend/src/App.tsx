@@ -7,6 +7,7 @@ import Footer from './components/Footer'
 import AuthPage from './components/auth/AuthPage'
 import Dashboard from './components/Dashboard'
 import ProtectedRoute from './components/ProtectedRoute'
+import UserSettingsPage from './components/account/UserSettingsPage'
 import './App.css'
 
 function LandingPage() {
@@ -27,7 +28,7 @@ function App() {
       <AuthProvider>
         <Routes>
           {/* Layout raíz: la Navbar es GLOBAL y persistente en todas las
-              rutas (landing, /auth, /dashboard y futuras). */}
+              rutas (landing, /auth, /dashboard, /settings y futuras). */}
           <Route element={<Layout />}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={<AuthPage />} />
@@ -36,6 +37,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <UserSettingsPage />
                 </ProtectedRoute>
               }
             />

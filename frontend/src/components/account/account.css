@@ -1,0 +1,408 @@
+/* NexusManager — Panel de administración del usuario (ajustes de cuenta)
+
+   Este archivo define SOLO las piezas propias del panel de ajustes. Reutiliza
+   directamente las clases del cockpit que ya existen en dashboard.css
+   (importado explícitamente desde UserSettingsPage.tsx): .panel, .panel-head,
+   .panel-sub, .side-link, .quick-grid, .quick-cell, .queue-list, .queue-row,
+   .queue-icon, .queue-body, .queue-title, .queue-when, .status-chip.tone-* y
+   .btn-secondary / .btn-coral. Todos los valores salen de los tokens de
+   index.css; no hay hex sueltos. */
+
+.acct-shell {
+  min-height: 100svh;
+  /* 4.25rem = alto de la navbar (4rem) + respiro; --verify-bar-h vale 0rem
+     salvo que la cuenta siga sin verificar, en cuyo caso la barra global
+     ocupa su sitio justo debajo de la navbar. */
+  padding-top: calc(4.25rem + var(--verify-bar-h));
+  background: var(--nx-bg);
+}
+
+/* ---------- Rejilla de dos columnas ---------- */
+.acct-wrap {
+  width: 100%;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: var(--nx-space-xl) var(--nx-space-lg) 3rem;
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--nx-space-xl);
+}
+
+@media (max-width: 1023px) {
+  .acct-wrap {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--nx-space-lg);
+  }
+}
+
+/* ---------- Cabecera ---------- */
+.acct-head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-md);
+  padding-bottom: var(--nx-space-lg);
+  border-bottom: 1px solid var(--nx-border);
+}
+
+.acct-head-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--nx-space-md);
+}
+
+.acct-head-sub {
+  color: var(--nx-ink-2);
+  max-width: 44rem;
+  margin-top: 0.25rem;
+}
+
+/* ---------- Índice lateral de secciones ---------- */
+.acct-index {
+  position: sticky;
+  /* El índice se ancla justo bajo la navbar y, si está en pantalla, bajo la
+     barra de verificación. */
+  top: calc(5.25rem + var(--verify-bar-h));
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-xs);
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-xl);
+  padding: var(--nx-space-md);
+}
+
+.acct-index-label {
+  color: var(--nx-ink-3);
+  padding: 0 0.625rem 0.25rem;
+}
+
+@media (max-width: 1023px) {
+  .acct-index {
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .acct-index-label {
+    display: none;
+  }
+}
+
+/* ---------- Columna de contenido ---------- */
+.acct-content {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-lg);
+}
+
+.acct-section {
+  /* Al saltar por el índice lateral el encabezado de sección no debe quedar
+     bajo la navbar ni bajo la barra de verificación. */
+  scroll-margin-top: calc(5.25rem + var(--verify-bar-h));
+}
+
+.acct-head-row {
+  flex-wrap: wrap;
+}
+
+/* ---------- Formularios ---------- */
+.acct-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-md);
+}
+
+.acct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  max-width: 28rem;
+}
+
+.acct-label {
+  color: var(--nx-ink);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+}
+
+.acct-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 0.75rem;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-r-sm);
+  color: var(--nx-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.acct-input:focus {
+  outline: none;
+  border-color: var(--nx-primary);
+  box-shadow: 0 0 0 1px var(--nx-primary);
+}
+
+.acct-input::placeholder {
+  color: var(--nx-ink-3);
+}
+
+.acct-input:disabled {
+  background: var(--nx-surface-subtle);
+  color: var(--nx-ink-3);
+  cursor: not-allowed;
+}
+
+.acct-hint {
+  color: var(--nx-ink-3);
+}
+
+.acct-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-sm);
+}
+
+/* ---------- Avisos ---------- */
+.acct-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--nx-r-sm);
+  border: 1px solid;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.acct-alert.tone-error {
+  background: var(--nx-fail-bg);
+  border-color: var(--nx-fail-border);
+  color: var(--nx-fail-ink);
+}
+
+.acct-alert.tone-ok {
+  background: var(--nx-live-bg);
+  border-color: var(--nx-live-border);
+  color: var(--nx-live-ink);
+}
+
+.acct-alert-icon {
+  font-size: 16px;
+  line-height: 20px;
+  flex-shrink: 0;
+}
+
+/* ---------- Iconos y chips ---------- */
+.queue-icon.acct-tone {
+  background: var(--nx-surface-mist);
+  color: var(--nx-primary);
+}
+
+.acct-chip-icon {
+  font-size: 14px;
+}
+
+/* El botón secundario del cockpit no era flex; se normaliza aquí porque en
+   ajustes todos los botones llevan icono. Solo añade propiedades, no pisa
+   ninguna regla existente de dashboard.css. */
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+}
+
+.btn-secondary .material-symbols-outlined,
+.btn-coral .material-symbols-outlined,
+.acct-danger-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* El estado :disabled de .btn-secondary / .btn-coral vive en App.css desde que
+   la barra de verificación se volvió global: estas clases se usan en toda la
+   app, no solo en ajustes, y desde account.css el botón deshabilitado se veía
+   activo en /dashboard y en la landing. */
+
+/* ---------- Filas de ajustes ---------- */
+.acct-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-md);
+}
+
+.acct-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--nx-space-md);
+  background: var(--nx-surface-subtle);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-r-lg);
+  padding: var(--nx-space-md);
+}
+
+.acct-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  max-width: 34rem;
+}
+
+.acct-row-title {
+  color: var(--nx-ink);
+}
+
+.acct-row-sub {
+  color: var(--nx-ink-2);
+}
+
+.acct-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-sm);
+}
+
+.acct-select {
+  min-width: 12rem;
+  height: 34px;
+  padding: 0 0.625rem;
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-border-strong);
+  border-radius: var(--nx-r-sm);
+  color: var(--nx-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.acct-select:disabled {
+  background: var(--nx-surface-subtle);
+  color: var(--nx-ink-3);
+  cursor: not-allowed;
+}
+
+.acct-check {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  border-radius: var(--nx-r-sm);
+  accent-color: var(--nx-primary);
+}
+
+.acct-check-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.acct-check-label {
+  color: var(--nx-ink-2);
+  cursor: not-allowed;
+}
+
+.acct-check:disabled {
+  cursor: not-allowed;
+}
+
+/* ---------- Sesiones ---------- */
+.acct-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--nx-space-sm);
+}
+
+.acct-skeleton-row {
+  height: 3rem;
+  border-radius: var(--nx-r-md);
+  background: var(--nx-surface-subtle);
+  border: 1px solid var(--nx-border);
+  animation: acct-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes acct-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acct-skeleton-row {
+    animation: none;
+  }
+}
+
+.acct-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nx-space-sm);
+  padding: var(--nx-space-xl) var(--nx-space-md);
+  text-align: center;
+  color: var(--nx-ink-2);
+}
+
+.acct-empty-icon {
+  font-size: 2rem;
+  color: var(--nx-ink-3);
+}
+
+/* ---------- Zona de peligro ---------- */
+.panel.acct-danger {
+  border-color: var(--nx-fail-border);
+}
+
+.acct-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--nx-r-sm);
+  background: var(--nx-fail-bg);
+  border: 1px solid var(--nx-fail-border);
+  color: var(--nx-fail-ink);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.acct-warning-icon {
+  font-size: 16px;
+  line-height: 20px;
+  flex-shrink: 0;
+}
+
+.acct-danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--nx-r-sm);
+  background: var(--nx-surface);
+  border: 1px solid var(--nx-fail-border);
+  color: var(--nx-fail-ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.01em;
+  font-weight: 600;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
