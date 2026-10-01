@@ -3,21 +3,28 @@
 Cubre: registro, login, protección de /me, rotación de refresh tokens,
 detección de reutilización, revocación por logout/reset, cierre de sesión,
 rate limiting, anti-enumeración y guard de Origin.
+
+El reseteo de contraseña ya no usa un token largo: se hace con un CÓDIGO de
+6 dígitos y el body es `{email, code, new_password}`. Los tests de reseteo de
+este módulo comprueban el contrato HTTP; la semántica del código (hash salado,
+intentos, caducidad, aislamiento entre usuarios) vive en
+`tests/test_verification.py`.
 """
 
-import logging
+from datetime import timedelta
 
 import jwt
-import pytest
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 
 from app.config import Settings, get_settings
 from app.database import SessionLocal
 from app.main import create_app
-from app.models import PasswordResetToken, User
-from app.security import generate_reset_token, new_reset_expiry, sha256_hex
+from app.models import User, VerificationCode
+from app.security import hash_verification_code, utcnow
 
 PASSWORD = "Segura-1234"
+PASSWORD_RESET = "password_reset"
 
 
 async def register_user(client: AsyncClient, email: str = "ana@empresa.com", password: str = PASSWORD):
@@ -25,6 +32,30 @@ async def register_user(client: AsyncClient, email: str = "ana@empresa.com", pas
         "/api/v1/auth/register",
         json={"full_name": "Ana Gómez", "email": email, "password": password},
     )
+
+
+async def insert_reset_code(
+    email: str, code: str = "123456", *, expires_at=None
+) -> tuple[str, int]:
+    """Inserta una fila VerificationCode de reseteo como si se acabara de
+    emitir por email, y devuelve (user_id, id de la fila)."""
+    async with SessionLocal() as db:
+        user = await db.scalar(select(User).where(User.email == email))
+        assert user is not None, f"el usuario {email} debe existir"
+        row = VerificationCode(
+            user_id=user.id,
+            purpose=PASSWORD_RESET,
+            code_hash=hash_verification_code(PASSWORD_RESET, user.id, code),
+            expires_at=expires_at or utcnow() + timedelta(minutes=10),
+        )
+        db.add(row)
+        await db.commit()
+        return user.id, row.id
+
+
+async def code_row(row_id: int) -> VerificationCode:
+    async with SessionLocal() as db:
+        return await db.get(VerificationCode, row_id)
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +71,9 @@ async def test_register_success(client, auth_headers):
     assert body["user"]["email"] == "ana@empresa.com"
     assert body["user"]["full_name"] == "Ana Gómez"
     assert body["user"]["auth_provider"] == "local"
+    # La cuenta nace SIN verificar: el email es lo que se confirma después con
+    # el código de 6 dígitos (POST /verify-email).
+    assert body["user"]["is_email_verified"] is False
 
     # La cookie de refresco debe estar presente (httpOnly, SameSite=Lax)
     cookie = res.cookies.get("nm_refresh")
@@ -279,21 +313,15 @@ async def test_reset_password_flow(client):
     await register_user(client, email="reset@empresa.com")
     session_cookie = client.cookies.get("nm_refresh")
 
-    # Emitimos un token de reseteo directamente (simula el correo)
-    token, token_hash = generate_reset_token()
-    async with SessionLocal() as db:
-        from sqlalchemy import select
-
-        user = (await db.execute(select(User).where(User.email == "reset@empresa.com"))).scalar_one()
-        db.add(PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=new_reset_expiry()))
-        await db.commit()
+    # Emitimos un código de reseteo directamente (simula el correo recibido)
+    _user_id, code_id = await insert_reset_code("reset@empresa.com", "123456")
 
     nuevo_password = "NuevaClave-987"
     res = await client.post(
         "/api/v1/auth/reset-password",
-        json={"token": token, "new_password": nuevo_password},
+        json={"email": "reset@empresa.com", "code": "123456", "new_password": nuevo_password},
     )
-    assert res.status_code == 200
+    assert res.status_code == 200, res.text
 
     # El login con la contraseña anterior falla; con la nueva, funciona
     r_old = await client.post("/api/v1/auth/login", json={"email": "reset@empresa.com", "password": PASSWORD})
@@ -305,30 +333,65 @@ async def test_reset_password_flow(client):
     client.cookies.set("nm_refresh", session_cookie, path="/api/v1/auth")
     assert (await client.post("/api/v1/auth/refresh")).status_code == 401
 
+    # El código queda consumido: no se puede reutilizar
+    row = await code_row(code_id)
+    assert row.consumed_at is not None
+    assert row.attempts == 0
+
 
 async def test_reset_password_token_single_use(client):
-    token, token_hash = generate_reset_token()
-    async with SessionLocal() as db:
-        from sqlalchemy import select
+    await register_user(client, email="single@empresa.com")
+    _user_id, code_id = await insert_reset_code("single@empresa.com", "042731")
 
-        db.add(User(email="single@empresa.com", full_name="Single Use", password_hash="x"))
-        await db.commit()
-        user = (await db.execute(select(User).where(User.email == "single@empresa.com"))).scalar_one()
-        db.add(PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=new_reset_expiry()))
-        await db.commit()
-
-    ok = {"token": token, "new_password": "OtraClave-123"}
+    ok = {"email": "single@empresa.com", "code": "042731", "new_password": "OtraClave-123"}
     assert (await client.post("/api/v1/auth/reset-password", json=ok)).status_code == 200
-    # Reutilizar el mismo token -> 400
-    assert (await client.post("/api/v1/auth/reset-password", json=ok)).status_code == 400
+    # Reutilizar el mismo código -> 400 genérico
+    res = await client.post("/api/v1/auth/reset-password", json=ok)
+    assert res.status_code == 400
+    assert res.json()["detail"] == "El código es inválido o ha expirado"
+
+    # Consumido en BD, y el contador de intentos sube (fallo contabilizado)
+    row = await code_row(code_id)
+    assert row.consumed_at is not None
+    assert row.attempts == 1
 
 
 async def test_reset_password_invalid_token(client):
+    """Un código incorrecto REAL (6 dígitos) da 400 genérico.
+
+    Ojo: un body con la forma antigua `{token, new_password}` ya no llega al
+    endpoint —Pydantic exige `email` y `code`, así que devuelve 422. El caso que
+    importa para la seguridad es el de abajo: existe una cuenta, hay un código
+    emitido, pero el que se envía no es el bueno.
+    """
+    await register_user(client, email="victima@empresa.com")
+    _user_id, _code_id = await insert_reset_code("victima@empresa.com", "123456")
+
+    res = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"email": "victima@empresa.com", "code": "999999", "new_password": "OtraClave-123"},
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"] == "El código es inválido o ha expirado"
+
+    # La contraseña no se ha tocado
+    assert (
+        await client.post(
+            "/api/v1/auth/login", json={"email": "victima@empresa.com", "password": PASSWORD}
+        )
+    ).status_code == 200
+
+
+async def test_reset_password_legacy_body_is_422(client):
+    """El contrato nuevo es {email, code, new_password}: la forma antigua con
+    `token` se rechaza por validación de schema (422), no por código inválido."""
     res = await client.post(
         "/api/v1/auth/reset-password",
         json={"token": "token-inventado-1234567890", "new_password": "OtraClave-123"},
     )
-    assert res.status_code == 400
+    assert res.status_code == 422
+    faltantes = {e["loc"][-1] for e in res.json()["detail"]}
+    assert {"email", "code"} <= faltantes
 
 
 # ---------------------------------------------------------------------------
