@@ -1,5 +1,6 @@
 import os
 import re
+from uuid import uuid4
 
 import aiofiles
 from fastapi import HTTPException, UploadFile
@@ -16,8 +17,36 @@ def detectar_tipo(nombre: str) -> str | None:
     return None
 
 
-def nombre_seguro(nombre: str) -> str:
-    return re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(nombre))
+def nombre_seguro(nombre: str, sufijo: str | None = None) -> str:
+    """Normaliza el nombre de un upload y le añade un token único.
+
+    El nombre de origen ya se guarda aparte en `archivos.nombre_original`, así que
+    aquí no hace falta que sea legible: lo que hace falta es que **dos archivos
+    distintos nunca acaben en la misma ruta**. Antes `mi video.mp4` y
+    `mi_video.mp4` normalizaban los dos a `mi_video.mp4`, el segundo upload
+    pisaba el archivo del primero, y la fila del primer `archivos` quedaba
+    apuntando a un archivo que ya no era el suyo.
+
+    El token es aleatorio, no un hash del nombre: dos archivos con el mismo
+    nombre colisionan igual bajo cualquier hash del nombre, y eso es
+    precisamente el caso que hay que cubrir.
+
+    `sufijo` existe para que los tests puedan fijar el resultado; el pipeline
+    normal nunca lo pasa y se queda con el token aleatorio.
+    """
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(nombre))
+    stem, ext = os.path.splitext(base)
+    # La normalización deja pasar los puntos, así que "." y ".." sobreviven y
+    # `os.path.join(carpeta, "..")` saldría de la carpeta del lote. No deben
+    # llegar al join. El mismo `strip` evita un nombre que empiece por "_" o "-".
+    stem = stem.strip("._") or "archivo"
+    if not re.fullmatch(r"\.[A-Za-z0-9]{1,10}", ext):
+        ext = ""
+    # Un nombre de 300 caracteres se pasa de los 255 bytes que admite un
+    # componente de fichero en APFS y ext4, y el upload reventaría con
+    # ENAMETOOLONG. El recorte va en el stem, nunca en la extensión.
+    stem = stem[:200]
+    return f"{stem}_{sufijo or uuid4().hex[:12]}{ext}"
 
 
 def dir_originales(lote_id: int) -> str:

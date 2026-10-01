@@ -1,18 +1,26 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException, UploadFile
 from sqlalchemy import func, select
 
 from . import storage
-from .config import API_KEY
+from .config import API_KEY, STORAGE_DIR, configurar_logging
 from .db import SessionLocal, init_db
 from .models import Archivo, Clip, Lote, Video
 from .tasks import procesar_lote
 
+log = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # La API y el worker son procesos distintos: cada uno configura su logging
+    # en su punto de entrada (aquí y en tasks.py).
+    configurar_logging()
+    log.info("arrancando ingestion-service (STORAGE_DIR=%s)", STORAGE_DIR)
     init_db()
+    log.info("esquema listo en Postgres")
     yield
 
 
@@ -45,9 +53,17 @@ async def crear_lote(files: list[UploadFile], x_api_key: str = Header()):
 
         for f, tipo in zip(files, tipos):
             ruta, tam = await storage.guardar_upload(lote_id, f)
-            db.add(Archivo(lote_id=lote_id, tipo=tipo, nombre_original=f.filename,
+            # `nombre_original` es String(255) y el nombre lo pone el cliente: sin
+            # recortar, un nombre largo da un 500 sin manejar en mitad del bucle.
+            # Ojo al alcance del daño: el lote se commitea ANTES del bucle, así que
+            # en la BD queda un lote con cero `Archivo` y los ficheros ya copiados
+            # en disco quedan huérfanos. Recortar evita el 500, no limpia los
+            # huérfanos (recolección de ficheros sueltos: ver TODO Fase 7.5).
+            db.add(Archivo(lote_id=lote_id, tipo=tipo, nombre_original=f.filename[:255],
                            ruta=ruta, tamano_bytes=tam))
         db.commit()
+    log.info("lote %s creado: %s archivo(s) (%s)",
+             lote_id, len(files), ", ".join(tipos))
 
     procesar_lote.send(lote_id)  # encola y responde de inmediato
     return {"lote_id": lote_id, "estado": "pendiente"}

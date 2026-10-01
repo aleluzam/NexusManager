@@ -1,9 +1,15 @@
-fastapi
-uvicorn[standard]
-python-multipart
-aiofiles
-sqlalchemy>=2.0
-psycopg[binary]
-pgvector
-dramatiq[redis]
-python-docx
+# Versiones exactas (Paso 0.8): sin esto un rebuild dentro de tres meses instala
+# otra cosa y el fallo aparece sin que nadie haya tocado el código. Los números
+# son los que había resueltos y funcionando en el contenedor antes de fijar.
+# Para subirlas a propósito, se edita aquí y se reconstruye la imagen.
+#
+# faster-whisper / ctranslate2 se añadirán en la Fase 3, también con pin.
+fastapi==0.141.1
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+aiofiles==25.1.0
+sqlalchemy==2.1.1
+psycopg[binary]==3.3.6
+pgvector==0.5.0
+dramatiq[redis]==2.2.1
+python-docx==1.2.0

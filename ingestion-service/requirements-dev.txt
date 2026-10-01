@@ -1,0 +1,11 @@
+# Dependencias SOLO de tests. Se instalan dentro del contenedor con el comando del
+# README de tests, no forman parte de la imagen de producción.
+#
+# Versiones exactas, igual que requirements.txt (mismo criterio del Paso 0.8):
+# los números son los que resuelven y pasan hoy contra python 3.12-slim.
+# pytest 9.1.1 + pytest-asyncio 1.4.0.
+#
+# El contenedor NO trae pytest: la imagen instala solo requirements.txt, así que
+# `pip install -r requirements-dev.txt` es el paso obligatorio antes de pytest.
+pytest==9.1.1
+pytest-asyncio==1.4.0
