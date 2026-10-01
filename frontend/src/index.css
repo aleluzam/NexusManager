@@ -49,6 +49,21 @@
   --nx-sched-bg: #f1f5f9;
   --nx-sched-ink: #475569;
   --nx-sched-border: #e2e8f0;
+  /* Aviso (`warn`): el cuarto estado que NO existía en el design system, que
+     solo definía scheduled / live / proc / fail. Hace falta para texto de
+     aviso en 11px, donde el coral de marca no sirve: --nx-coral da 2,95:1
+     sobre --nx-proc-bg y su escalón --nx-coral-active 4,13:1 — los dos por
+     debajo del 4,5:1 que WCAG AA pide a texto pequeño. Y no se cogió prestado
+     --nx-coral-active a propósito: ese valor pertenece al ramp de hover/press
+     del botón de coral, así que el próximo que lo oscurezca para estados de
+     botón cambiaría en silencio el color de un texto. Este token es de solo
+     lectura para texto y no se toca al retocar el botón.
+     --nx-warn-ink da 5,63:1 sobre --nx-proc-bg (y 6,04:1 sobre blanco), con
+     un hue de 40° que lo deja a 26 grados del coral y a 40 del rojo de fallo:
+     los tres estados se distinguen también sin depender del color. */
+  --nx-warn-bg: #fef8ec;
+  --nx-warn-ink: #865a04;
+  --nx-warn-border: #f7e1b6;
 
   /* Tipografía */
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -71,6 +86,15 @@
   --nx-shadow-raise: 0 4px 12px rgba(30, 41, 59, 0.08);
   --nx-shadow-pop: 0 8px 24px rgba(30, 41, 59, 0.12);
   --nx-shadow-scrim: 0 24px 48px rgba(30, 41, 59, 0.18);
+
+  /* Hueco que reserva la barra global de verificación del correo. La barra es
+     `position: fixed`, así que no empuja nada por sí sola: cada página suma
+     esta variable a su padding-top (`calc(4.25rem + var(--verify-bar-h))`).
+     Aquí solo vive el valor por defecto del contrato —0rem, sin barra—; el
+     alto real lo escribe VerifyEmailBar.tsx como estilo inline en <body> y se
+     mide con un ResizeObserver, porque un alto fijo en CSS miente en cuanto
+     la barra crece (mensaje de error) o se apila (móvil). */
+  --verify-bar-h: 0rem;
 
   font-family: var(--font-sans);
   font-synthesis: none;

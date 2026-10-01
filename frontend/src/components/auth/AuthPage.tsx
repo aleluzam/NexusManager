@@ -2,15 +2,22 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { ApiError, apiFetch } from '../../lib/api'
+import { useResendCooldown } from '../../lib/useResendCooldown'
+import OtpInput from './OtpInput'
 import './auth.css'
 import navbarLogo from '../../assets/navbar-logo.png'
 
-type View = 'login' | 'register' | 'forgot'
+type View = 'login' | 'register' | 'forgot' | 'reset'
+
+const OTP_LENGTH = 6
+const RESEND_COOLDOWN = 60
+const ERROR_BANNER_ID = 'auth-error'
 
 interface FormState {
   name: string
   email: string
   password: string
+  confirmPassword: string
   rememberMe: boolean
   acceptTerms: boolean
 }
@@ -19,9 +26,19 @@ const INITIAL_FORM: FormState = {
   name: '',
   email: '',
   password: '',
+  confirmPassword: '',
   rememberMe: true,
   acceptTerms: false,
 }
+
+/* El enlace que llega por correo apunta a /auth?mode=reset&email=… */
+function initialView(mode: string | null): View {
+  if (mode === 'register') return 'register'
+  if (mode === 'reset') return 'reset'
+  if (mode === 'forgot') return 'forgot'
+  return 'login'
+}
+
 
 function GoogleIcon() {
   return (
@@ -52,17 +69,28 @@ export default function AuthPage() {
   const navigate = useNavigate()
   const modeParam = searchParams.get('mode')
 
-  const [view, setView] = useState<View>(() =>
-    modeParam === 'register' ? 'register' : 'login',
-  )
-  const [form, setForm] = useState<FormState>(INITIAL_FORM)
+  const [view, setView] = useState<View>(() => initialView(modeParam))
+  const [form, setForm] = useState<FormState>(() => ({
+    ...INITIAL_FORM,
+    email: searchParams.get('email') ?? '',
+  }))
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [forgotSent, setForgotSent] = useState(false)
   const [googleNotice, setGoogleNotice] = useState(false)
 
+  /* Vista de restablecimiento: código, confirmación y estado final */
+  const [code, setCode] = useState('')
+  const [codeInvalid, setCodeInvalid] = useState(false)
+  const [resetDone, setResetDone] = useState(false)
+  const [resendNotice, setResendNotice] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const resend = useResendCooldown(RESEND_COOLDOWN)
+
   const formRef = useRef<HTMLFormElement>(null)
+  const otpRef = useRef<{ focus: (index?: number) => void } | null>(null)
+
 
   useEffect(() => {
     if (authStatus === 'authenticated') {
@@ -82,17 +110,58 @@ export default function AuthPage() {
     setForgotSent(false)
     setGoogleNotice(false)
     setShowPassword(false)
+    setCode('')
+    setCodeInvalid(false)
+    setResetDone(false)
+    setResendNotice(null)
+    resend.reset()
+    // El correo sobrevive al cambio de vista (el flujo forgot → reset depende
+    // de ello); las contraseñas nunca: son datos sensibles que no deben quedar
+    // en el DOM al salir de la vista que las capturó.
+    setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
     formRef.current?.querySelectorAll('.auth-input.is-invalid').forEach((el) => {
       el.classList.remove('is-invalid')
     })
   }
 
   const isRegister = view === 'register'
+  const isIdentity = view === 'login' || view === 'register'
+  const isReset = view === 'reset'
+  /* Estados terminales: sustituyen el formulario por una única acción clara */
+  const finished = (view === 'forgot' && forgotSent) || (isReset && resetDone)
+
+  const handleResend = async () => {
+    const email = form.email.trim()
+    if (resending || resend.remaining > 0 || !email) return
+
+    setResending(true)
+    setResendNotice(null)
+    try {
+      // forgot-password es la única vía sin sesión para reemitir un código.
+      await apiFetch<{ detail: string }>('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      })
+      setResendNotice(
+        'Si el correo está registrado, recibirás un código nuevo en unos segundos.',
+      )
+      setCode('')
+      resend.start()
+      otpRef.current?.focus(0)
+    } catch (error) {
+      setResendNotice(
+        error instanceof ApiError ? error.detail : 'Error de conexión',
+      )
+    } finally {
+      setResending(false)
+    }
+  }
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setServerError(null)
     setForgotSent(false)
+    setResendNotice(null)
 
     if (view === 'forgot') {
       if (!form.email) return
@@ -105,6 +174,56 @@ export default function AuthPage() {
         setForgotSent(true)
       } catch (error) {
         setServerError(error instanceof ApiError ? error.detail : 'Error de conexión')
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
+    if (isReset) {
+      const email = form.email.trim()
+      if (!email) {
+        setServerError('Introduce el correo donde recibiste el código.')
+        return
+      }
+      if (code.length !== OTP_LENGTH) {
+        setServerError('Introduce el código de 6 dígitos que enviamos por correo.')
+        setCodeInvalid(true)
+        otpRef.current?.focus(0)
+        return
+      }
+      if (form.password.length < 8) {
+        setServerError('La nueva contraseña debe tener al menos 8 caracteres.')
+        return
+      }
+      if (form.confirmPassword && form.confirmPassword !== form.password) {
+        setServerError('Las contraseñas no coinciden.')
+        return
+      }
+
+      setSubmitting(true)
+      try {
+        await apiFetch<{ detail: string }>('/api/v1/auth/reset-password', {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            code,
+            new_password: form.password,
+          }),
+        })
+        setResetDone(true)
+        setCode('')
+        setCodeInvalid(false)
+        setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
+      } catch (error) {
+        setServerError(error instanceof ApiError ? error.detail : 'Error de conexión')
+        if (error instanceof ApiError && error.status === 400) {
+          // El código caducó o no existe: el correo se conserva intacto para
+          // reintentar y la atención vuelve a las casillas.
+          setCode('')
+          setCodeInvalid(true)
+          otpRef.current?.focus(0)
+        }
       } finally {
         setSubmitting(false)
       }
@@ -128,7 +247,14 @@ export default function AuthPage() {
     }
   }
 
-  const submitLabel = isRegister ? 'Crear cuenta corporativa' : 'Entrar a la plataforma'
+  const submitLabel = isRegister
+    ? 'Crear cuenta corporativa'
+    : view === 'forgot'
+      ? 'Enviar código de recuperación'
+      : isReset
+        ? 'Restablecer contraseña'
+        : 'Entrar a la plataforma'
+
 
   return (
     <div className="auth-page">
@@ -148,11 +274,14 @@ export default function AuthPage() {
                 Acceso a Nexus<span className="auth-title-coral">Manager</span>
               </h1>
               <p className="auth-subtitle">
-                Gestiona tus redes y genera contenido audiovisual desde tu panel
-                de control
+                {isReset
+                  ? 'Establece una nueva contraseña con el código de 6 dígitos que enviamos a tu correo'
+                  : view === 'forgot'
+                    ? 'Solicita un código de 6 dígitos para restablecer el acceso a tu cuenta'
+                    : 'Gestiona tus redes y genera contenido audiovisual desde tu panel de control'}
               </p>
 
-              {view !== 'forgot' && (
+              {isIdentity && (
                 <div className="auth-tabs" role="tablist">
                   <button
                     type="button"
@@ -175,7 +304,7 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {view !== 'forgot' && (
+              {isIdentity && (
                 <button
                   type="button"
                   className="auth-google-btn"
@@ -195,7 +324,7 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {view !== 'forgot' && (
+              {isIdentity && (
                 <div className="auth-divider">
                   <div className="auth-divider-line" />
                   <span className="auth-divider-label">
@@ -205,127 +334,298 @@ export default function AuthPage() {
               )}
 
               <form className="auth-form" onSubmit={handleSubmit} ref={formRef} noValidate>
-                {view === 'forgot' && (
-                  <button
-                    type="button"
-                    className="auth-back-link"
-                    onClick={() => switchView('login')}
-                  >
-                    <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
-                      arrow_back
-                    </span>
-                    Volver a iniciar sesión
-                  </button>
-                )}
-
-                {view === 'forgot' && (
-                  <div className="auth-field">
-                    <label className="auth-label" htmlFor="input-forgot-email">
-                      Correo electrónico profesional
-                    </label>
-                    <input
-                      id="input-forgot-email"
-                      className="auth-input"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="nombre@tuempresa.com"
-                      value={form.email}
-                      onChange={(e) => setField('email', e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-
-                {forgotSent && (
-                  <div className="auth-banner-success" role="status">
-                    <span className="material-symbols-outlined auth-banner-icon" aria-hidden="true">
-                      mail
-                    </span>
-                    Si el correo existe, recibirás un enlace para restablecer tu
-                    contraseña.
-                  </div>
-                )}
-
-                {isRegister && (
-                  <div className="auth-field">
-                    <label className="auth-label" htmlFor="input-name">
-                      Nombre y apellidos
-                    </label>
-                    <input
-                      id="input-name"
-                      className="auth-input"
-                      type="text"
-                      autoComplete="name"
-                      placeholder="p. ej. Roberto Silva"
-                      value={form.name}
-                      onChange={(e) => setField('name', e.target.value)}
-                      minLength={2}
-                      required={isRegister}
-                    />
-                  </div>
-                )}
-
-                {view !== 'forgot' && (
-                  <div className="auth-field">
-                    <label className="auth-label" htmlFor="input-email">
-                      Correo electrónico profesional
-                    </label>
-                    <input
-                      id="input-email"
-                      className="auth-input"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="nombre@tuempresa.com"
-                      value={form.email}
-                      onChange={(e) => setField('email', e.target.value)}
-                      required
-                    />
-                  </div>
-                )}
-
-                {view !== 'forgot' && (
-                  <div className="auth-field">
-                    <div className="auth-label-row">
-                      <label className="auth-label" htmlFor="input-password">
-                        Contraseña
-                      </label>
-                      {!isRegister && (
-                        <button
-                          type="button"
-                          className="auth-forgot-link"
-                          onClick={() => switchView('forgot')}
-                        >
-                          ¿Olvidaste tu contraseña?
-                        </button>
-                      )}
+                {/* Olvidé contraseña: el backend siempre responde 202 para no
+                    revelar qué correos existen, así que la pantalla confirma el
+                    envío sin afirmar que la cuenta exista. */}
+                {view === 'forgot' && forgotSent && (
+                  <div className="auth-state">
+                    <div className="auth-banner-success" role="status">
+                      <span className="material-symbols-outlined auth-banner-icon" aria-hidden="true">
+                        mark_email_read
+                      </span>
+                      <span>
+                        Si el correo{' '}
+                        <span className="auth-state-mail">{form.email.trim()}</span>{' '}
+                        está registrado, recibirás un código de 6 dígitos en unos
+                        segundos. Revisa también la carpeta de spam.
+                      </span>
                     </div>
-                    <div className="auth-password-wrap">
-                      <input
-                        id="input-password"
-                        className="auth-input auth-input-password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete={isRegister ? 'new-password' : 'current-password'}
-                        placeholder="Mínimo 8 caracteres"
-                        value={form.password}
-                        onChange={(e) => setField('password', e.target.value)}
-                        minLength={isRegister ? 8 : undefined}
-                        required
-                      />
+                    <p className="body-sm auth-note">
+                      Por seguridad no confirmamos si la cuenta está dada de
+                      alta: si no reconoces este correo, ignora este mensaje.
+                    </p>
+                    <button
+                      type="button"
+                      className="auth-submit"
+                      onClick={() => switchView('reset')}
+                    >
+                      Ya lo tengo, escribir el código
+                    </button>
+                    <div className="auth-state-links">
                       <button
                         type="button"
-                        className="auth-password-toggle"
-                        aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="auth-back-link"
+                        onClick={() => {
+                          setForgotSent(false)
+                          setServerError(null)
+                        }}
                       >
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                          {showPassword ? 'visibility_off' : 'visibility'}
-                        </span>
+                        Usar otro correo
+                      </button>
+                      <button
+                        type="button"
+                        className="auth-back-link"
+                        onClick={() => switchView('login')}
+                      >
+                        Volver a iniciar sesión
                       </button>
                     </div>
                   </div>
                 )}
 
-                {view !== 'forgot' && (
+                {/* Restablecimiento completado: no se abre sesión aquí, el
+                    usuario vuelve al acceso con su nueva contraseña. */}
+                {isReset && resetDone && (
+                  <div className="auth-state">
+                    <div className="auth-banner-success" role="status">
+                      <span className="material-symbols-outlined auth-banner-icon" aria-hidden="true">
+                        verified
+                      </span>
+                      Tu contraseña se ha restablecido. Ya puedes entrar con la
+                      nueva contraseña.
+                    </div>
+                    <p className="body-sm auth-note">
+                      Por seguridad el restablecimiento no inicia sesión
+                      automáticamente.
+                    </p>
+                    <button
+                      type="button"
+                      className="auth-submit"
+                      onClick={() => switchView('login')}
+                    >
+                      Ir a iniciar sesión
+                    </button>
+                  </div>
+                )}
+
+                {!finished && (
+                  <>
+                  {view !== 'login' && (
+                    <button
+                      type="button"
+                      className="auth-back-link"
+                      onClick={() => switchView('login')}
+                    >
+                      <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                        arrow_back
+                      </span>
+                      Volver a iniciar sesión
+                    </button>
+                  )}
+
+                  {view === 'forgot' && (
+                    <div className="auth-field">
+                      <label className="auth-label" htmlFor="input-forgot-email">
+                        Correo electrónico profesional
+                      </label>
+                      <input
+                        id="input-forgot-email"
+                        className="auth-input"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="nombre@tuempresa.com"
+                        value={form.email}
+                        onChange={(e) => setField('email', e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {isRegister && (
+                    <div className="auth-field">
+                      <label className="auth-label" htmlFor="input-name">
+                        Nombre y apellidos
+                      </label>
+                      <input
+                        id="input-name"
+                        className="auth-input"
+                        type="text"
+                        autoComplete="name"
+                        placeholder="p. ej. Roberto Silva"
+                        value={form.name}
+                        onChange={(e) => setField('name', e.target.value)}
+                        minLength={2}
+                        required={isRegister}
+                      />
+                    </div>
+                  )}
+
+                  {isIdentity && (
+                    <div className="auth-field">
+                      <label className="auth-label" htmlFor="input-email">
+                        Correo electrónico profesional
+                      </label>
+                      <input
+                        id="input-email"
+                        className="auth-input"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="nombre@tuempresa.com"
+                        value={form.email}
+                        onChange={(e) => setField('email', e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+
+                  {isIdentity && (
+                    <div className="auth-field">
+                      <div className="auth-label-row">
+                        <label className="auth-label" htmlFor="input-password">
+                          Contraseña
+                        </label>
+                        {!isRegister && (
+                          <button
+                            type="button"
+                            className="auth-forgot-link"
+                            onClick={() => switchView('forgot')}
+                          >
+                            ¿Olvidaste tu contraseña?
+                          </button>
+                        )}
+                      </div>
+                      <div className="auth-password-wrap">
+                        <input
+                          id="input-password"
+                          className="auth-input auth-input-password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete={isRegister ? 'new-password' : 'current-password'}
+                          placeholder="Mínimo 8 caracteres"
+                          value={form.password}
+                          onChange={(e) => setField('password', e.target.value)}
+                          minLength={isRegister ? 8 : undefined}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="auth-password-toggle"
+                          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                          onClick={() => setShowPassword((prev) => !prev)}
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                            {showPassword ? 'visibility_off' : 'visibility'}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ---------------- Restablecimiento ---------------- */}
+                  {isReset && (
+                    <>
+                      <div className="auth-field">
+                        <label className="auth-label" htmlFor="input-reset-email">
+                          Correo electrónico profesional
+                        </label>
+                        <input
+                          id="input-reset-email"
+                          className="auth-input"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="nombre@tuempresa.com"
+                          value={form.email}
+                          onChange={(e) => setField('email', e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="auth-field">
+                        <label className="auth-label" htmlFor="input-reset-code-1">
+                          Código de 6 dígitos
+                        </label>
+                        <OtpInput
+                          id="input-reset-code"
+                          ref={otpRef}
+                          label="Código de 6 dígitos"
+                          value={code}
+                          onChange={(value) => {
+                            setCode(value)
+                            setCodeInvalid(false)
+                            setServerError(null)
+                          }}
+                          errorId={codeInvalid && serverError ? ERROR_BANNER_ID : undefined}
+                          invalid={codeInvalid}
+                          autoFocus
+                        />
+                        <div className="auth-otp-row">
+                          <span className="body-sm auth-hint">
+                            También puedes pegar el código completo.
+                          </span>
+                          <button
+                            type="button"
+                            className="auth-forgot-link"
+                            onClick={() => void handleResend()}
+                            disabled={resending || resend.remaining > 0 || !form.email.trim()}
+                          >
+                            {resending
+                              ? 'Enviando…'
+                              : resend.remaining > 0
+                                ? `Reenviar código en ${resend.remaining}s`
+                                : 'Reenviar código'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="auth-field">
+                        <label className="auth-label" htmlFor="input-reset-password">
+                          Nueva contraseña
+                        </label>
+                        <div className="auth-password-wrap">
+                          <input
+                            id="input-reset-password"
+                            className="auth-input auth-input-password"
+                            type={showPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
+                            placeholder="Mínimo 8 caracteres"
+                            value={form.password}
+                            onChange={(e) => setField('password', e.target.value)}
+                            minLength={8}
+                            required
+                          />
+                          <button
+                            type="button"
+                            className="auth-password-toggle"
+                            aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                            onClick={() => setShowPassword((prev) => !prev)}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                              {showPassword ? 'visibility_off' : 'visibility'}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="auth-field">
+                        <label className="auth-label" htmlFor="input-reset-confirm">
+                          Repetir contraseña
+                        </label>
+                        <input
+                          id="input-reset-confirm"
+                          className="auth-input"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          placeholder="Vuelve a escribirla"
+                          value={form.confirmPassword}
+                          onChange={(e) => setField('confirmPassword', e.target.value)}
+                        />
+                        <span className="body-sm auth-hint">
+                          Opcional, pero evita errores de tecleo en el cambio.
+                        </span>
+                      </div>
+                  </>
+                )}
+
+                {isIdentity && (
                   <div className="auth-session-row">
                     <label className="auth-checkbox-label">
                       <input
@@ -348,7 +648,7 @@ export default function AuthPage() {
                 )}
 
                 {serverError && (
-                  <div className="auth-banner-error" role="alert">
+                  <div className="auth-banner-error" id={ERROR_BANNER_ID} role="alert">
                     <span className="material-symbols-outlined auth-banner-icon" aria-hidden="true">
                       error
                     </span>
@@ -356,17 +656,28 @@ export default function AuthPage() {
                   </div>
                 )}
 
+                {isReset && resendNotice && (
+                  <div className="auth-banner-success" role="status">
+                    <span className="material-symbols-outlined auth-banner-icon" aria-hidden="true">
+                      forward_to_inbox
+                    </span>
+                    {resendNotice}
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   className="auth-submit"
-                  disabled={submitting || forgotSent}
+                  disabled={submitting}
                 >
                   {submitting
                     ? 'Un momento…'
                     : view === 'forgot'
-                      ? 'Enviar enlace de recuperación'
+                      ? 'Enviar código de recuperación'
                       : submitLabel}
                 </button>
+                  </>
+                )}
               </form>
             </div>
 

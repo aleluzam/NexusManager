@@ -1,8 +1,15 @@
-/* NexusManager — Dashboard "cockpit" operativo */
+/* NexusManager — Dashboard "cockpit" operativo
+
+   La barra de verificación del correo ya no vive aquí: es global y la monta
+   Layout.tsx. Sus reglas están en auth/verify-bar.css y su hueco se descuenta
+   con la variable --verify-bar-h (ver index.css). */
 
 .cockpit {
   min-height: 100svh;
-  padding-top: 4.25rem;
+  /* 4.25rem = alto de la navbar (4rem) + respiro; --verify-bar-h vale 0rem
+     salvo que la cuenta siga sin verificar, en cuyo caso la barra global
+     ocupa su sitio justo debajo de la navbar. */
+  padding-top: calc(4.25rem + var(--verify-bar-h));
   display: grid;
   grid-template-columns: 15rem 1fr;
   align-items: start;
@@ -18,8 +25,8 @@
 /* ---------- Sidebar operativo ---------- */
 .cockpit-side {
   position: sticky;
-  top: 4.25rem;
-  height: calc(100svh - 4.25rem);
+  top: calc(4.25rem + var(--verify-bar-h));
+  height: calc(100svh - 4.25rem - var(--verify-bar-h));
   display: flex;
   flex-direction: column;
   background: var(--nx-surface);
@@ -118,6 +125,20 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* Bloque de usuario del pie: el nombre/correo enlaza a los ajustes */
+.side-user-link {
+  flex: 1;
+  display: block;
+  min-width: 0;
+  padding: 0.25rem 0.375rem;
+  border-radius: var(--nx-r-sm);
+  transition: background-color 0.15s;
+}
+
+.side-user-link:hover {
+  background: var(--nx-surface-subtle);
 }
 
 .side-user-name {

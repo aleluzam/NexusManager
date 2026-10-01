@@ -9,7 +9,10 @@
 
 .landing-main {
   width: 100%;
-  padding-top: 4rem;
+  /* La navbar es fija (4rem); --verify-bar-h vale 0rem salvo que la barra
+     global de verificación del correo esté en pantalla. Así el hero nunca
+     queda debajo de ninguna de las dos. */
+  padding-top: calc(4rem + var(--verify-bar-h));
 }
 
 /* ------------------------------------------------------------
@@ -60,6 +63,13 @@
   height: 2.25rem;
   object-fit: contain;
   border-radius: var(--nx-r-sm);
+}
+
+/* El wordmark de la navbar va apretado contra el logo. El footer reutiliza
+   .navbar-logo con .footer-brand (gap 0.6rem), así que el ajuste se limita al
+   brand de la barra y el logo del footer conserva su separación. */
+.navbar-brand .navbar-logo {
+  margin-right: -0.5rem;
 }
 
 .navbar-wordmark {
@@ -157,6 +167,17 @@
   border-radius: var(--nx-r-full);
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Entrada al panel de ajustes de cuenta: el avatar es el único enlace */
+.navbar-avatar-link {
+  display: inline-flex;
+  border-radius: var(--nx-r-full);
+  transition: box-shadow 0.15s;
+}
+
+.navbar-avatar-link:hover {
+  box-shadow: 0 0 0 2px var(--nx-coral);
 }
 
 /* ------------------------------------------------------------
@@ -806,4 +827,20 @@
 
 .footer-link:hover {
   color: var(--nx-primary);
+}
+/* ------------------------------------------------------------
+   Botones — estado deshabilitado (global)
+   ------------------------------------------------------------
+   Estas reglas vivían en account/account.css, que solo se importa
+   en /settings. Con la barra de verificación montada en Layout
+   dejan de ser específicas de una página: .btn-secondary y .btn-coral
+   se usan en toda la app, y desde account.css el botón deshabilitado
+   durante el cooldown de reenvío se veía activo en /dashboard y en la
+   landing. Al estar en una hoja global se aplican en todas las rutas. */
+.btn-secondary:disabled,
+.btn-coral:disabled {
+  background: var(--nx-surface-subtle);
+  color: var(--nx-ink-3);
+  border-color: var(--nx-border);
+  cursor: not-allowed;
 }

@@ -141,10 +141,16 @@ function Dashboard() {
             <span className="label-sm">Sistemas operativos</span>
           </div>
           <div className="side-user">
-            <div className="side-user-info">
-              <span className="side-user-name label-sm">{user?.full_name}</span>
-              <span className="side-user-mail body-sm">{user?.email}</span>
-            </div>
+            <Link
+              className="side-user-link"
+              to="/settings"
+              title="Abrir los ajustes de cuenta"
+            >
+              <span className="side-user-info">
+                <span className="side-user-name label-sm">{user?.full_name}</span>
+                <span className="side-user-mail body-sm">{user?.email}</span>
+              </span>
+            </Link>
             <button
               type="button"
               className="side-logout"

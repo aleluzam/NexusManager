@@ -21,6 +21,9 @@ interface AuthContextValue {
   user: User | null
   login: (email: string, password: string, rememberMe: boolean) => Promise<void>
   register: (fullName: string, email: string, password: string) => Promise<void>
+  updateProfile: (fullName: string) => Promise<User>
+  verifyEmail: (code: string) => Promise<User>
+  resendVerificationCode: () => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -96,9 +99,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Actualiza el nombre en el estado para que Navbar y Dashboard lo reflejen
+  // sin necesidad de recargar la página. Devuelve el User ya normalizado por
+  // el servidor (colapsa espacios internos) para que el formulario quede
+  // sincronizado con lo realmente guardado.
+  const updateProfile = useCallback(async (fullName: string): Promise<User> => {
+    const updated = await apiFetch<User>('/api/v1/auth/me', {
+      method: 'PATCH',
+      body: JSON.stringify({ full_name: fullName }),
+    })
+    setState({ user: updated })
+    return updated
+  }, [])
+
+  // Verificación del correo: el servidor devuelve el User ya con
+  // is_email_verified en true, así que se adopta su respuesta tal cual (igual
+  // que updateProfile) y el aviso de verificación del cockpit se aparta solo.
+  const verifyEmail = useCallback(async (code: string): Promise<User> => {
+    const updated = await apiFetch<User>('/api/v1/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    })
+    setState({ user: updated })
+    return updated
+  }, [])
+
+  // Reenvío del código de verificación. Lanza ApiError para que la UI muestre
+  // el `detail` del servidor (caducado, límite de intentos, fallo de envío).
+  const resendVerificationCode = useCallback(async (): Promise<void> => {
+    await apiFetch<{ detail: string }>('/api/v1/auth/resend-verification', {
+      method: 'POST',
+    })
+  }, [])
+
   const value = useMemo(
-    () => ({ status, user: state.user, login, register, logout }),
-    [status, state.user, login, register, logout],
+    () => ({
+      status,
+      user: state.user,
+      login,
+      register,
+      updateProfile,
+      verifyEmail,
+      resendVerificationCode,
+      logout,
+    }),
+    [
+      status,
+      state.user,
+      login,
+      register,
+      updateProfile,
+      verifyEmail,
+      resendVerificationCode,
+      logout,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

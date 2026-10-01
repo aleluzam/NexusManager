@@ -1,0 +1,215 @@
+/* NexusManager — Barra global de verificación del correo
+
+   Este archivo vive aquí y no en dashboard.css porque la barra ya no es una
+   pieza del cockpit: la monta Layout.tsx una sola vez, bajo la navbar, y se ve
+   en todas las rutas mientras la cuenta siga sin verificar.
+
+   Como es `position: fixed` no reserva hueco por sí sola. La navbar está
+   fijada con z-index 60, así que la barra cuelga justo debajo (z-index 59) y
+   publica su altura real en --verify-bar-h, la variable que las páginas suman
+   a su padding-top para apartar el contenido (ver index.css). El valor de
+   diseño es 5rem; VerifyEmailBar.tsx lo sustituye por la medida real cuando el
+   contenido crece (mensaje de error o apilado en móvil). */
+
+.verify-bar {
+  position: fixed;
+  top: 4rem;
+  left: 0;
+  right: 0;
+  z-index: 59;
+  min-height: 5rem;
+  padding: 0.625rem 1.5rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-lg);
+  background: var(--nx-proc-bg);
+  border-left: 3px solid var(--nx-coral);
+  border-bottom: 1px solid var(--nx-proc-border);
+  box-shadow: var(--nx-shadow-raise);
+}
+
+.verify-bar-main {
+  flex: 1 1 22rem;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--nx-space-md);
+}
+
+.verify-bar-icon {
+  font-size: 22px;
+  line-height: 24px;
+  color: var(--nx-coral);
+  flex-shrink: 0;
+}
+
+.verify-bar-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.verify-bar-sub {
+  color: var(--nx-ink-2);
+}
+
+.verify-bar-mail {
+  color: var(--nx-ink);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.verify-bar-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-md);
+}
+
+.verify-bar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--nx-space-sm);
+}
+
+/* El botón de reenvío cambia de etiqueta en cada tick del cooldown ("Reenviar
+   código" → "Reenviar en 45s" → …) y además tiene una tercera etiqueta, la más
+   larga, cuando el que bloquea es el límite horario del servidor. Como
+   .verify-bar-form envuelve, un cambio de ancho de unos pocos píxeles en esa
+   banda de anchos (950-1050px) hace envolver o desenvolver la fila, el observer
+   mide distinto y toda la página salta verticalmente una vez por segundo durante
+   el cooldown. Se reserva el ancho de la etiqueta más larga y se centra; con eso
+   el alto ya no depende del número que muestra.
+
+   Anchuras medidas en Chromium con el markup real (icono 18px + gap 5px + texto
+   + padding 28px + borde 2px), NO supuestas:
+     "Reenviar código" ......................... 156.56px
+     "Reenviar en 60s" ......................... 153.25px
+     "Reenviar en 17 min" ...................... 166.86px
+     "Reenviar en 1 h 59 min" .................. 188.16px  ← la más larga sin motivo
+     "Límite horario · 1 h 59 min" ............. 208.69px  ← la más larga con motivo
+   13.25rem = 212px, que cubre los 208.69px de la del cubo con ~3px de holgura
+   (los bordes de los píxeles y el redondeo de las cifras tabulares). Antes
+   eran 11rem para el caso de 60s; los ~36px de más son el precio de que el
+   botón diga POR QUÉ está deshabilitado, y la banda de acciones sigue en una
+   sola línea: 104.53 + 208.69 + 192 + 16 de gaps = 521px de 628px libres. */
+.verify-bar-resend {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 13.25rem;
+}
+
+.verify-bar-msg {
+  flex: 1 1 100%;
+  padding-top: var(--nx-space-sm);
+  border-top: 1px solid var(--nx-border);
+}
+
+.verify-bar-msg.is-error {
+  color: var(--nx-fail-ink);
+}
+
+.verify-bar-msg.is-ok {
+  color: var(--nx-live-ink);
+}
+
+/* ---------- Cuenta atrás de caducidad ----------
+   El texto de este bloque cambia CADA SEGUNDO, y la barra se mide con un
+   ResizeObserver que publica su alto en --verify-bar-h. Si el ancho de la
+   línea variase aunque fuera 1px, el observer mediría distinto, las páginas
+   sumarían otro padding-top y la página entera saltaría verticalmente una vez
+   por segundo durante los 10 minutos del TTL. Por eso el bloque se apoya en
+   dos capas: el valor con cifras de ancho fijo (.tnum) y la línea entera con
+   un ancho reservado. */
+.verify-bar-expiry {
+  /* Nunca dos líneas: si el texto pudiera partirse, la altura pasaría a
+     depender de en qué punto del ancho esté la ventana. */
+  white-space: nowrap;
+  color: var(--nx-ink-2);
+  /* Ancho del texto MÁS LARGO de los dos estados que alternan, medido en
+     Chromium con Plus Jakarta Sans a label-sm: "Caduca en 09:38" → 93,86px y
+     "Código caducado. Pide otro." → 160,30px. Se reservan 10,5rem (168px),
+     con 7,7px de margen, para que la caja de la línea sea idéntica en los dos
+     estados y el observer no pueda ver un alto distinto al caducar. */
+  min-width: 10.5rem;
+}
+
+/* El valor por sí solo: cifras tabulares + 5ch reservados. Medido a label-sm
+   (11px/600) en Chromium con Plus Jakarta Sans, el ancho de contenido es
+   EXACTAMENTE el mismo para todos los valores ("09:38" = "09:37" = "09:11" =
+   "11:11" = "00:00" = 30,2188px) porque .tnum obliga a que todos los dígitos
+   midan lo mismo. Sin .tnum, el mismo texto mide entre 21,08px ("11:11") y
+   35,33px ("00:00"): hasta 14,25px de movimiento horizontal EN CADA SEGUNDO.
+   Los 5ch (39,375px) cubren el caso del separador y del guion del estado
+   pendiente ("--:--", 28,73px), que tampoco es un dígito. */
+.verify-bar-expiry-value {
+  display: inline-block;
+  min-width: 5ch;
+  text-align: center;
+}
+
+/* Aviso: menos de dos minutos.
+   El color sale de --nx-warn-ink, el token semántico de aviso (ver index.css),
+   NO del ramp de --nx-coral: ese ramp es de hover/press del botón de coral y
+   --nx-coral-active da 4,13:1 sobre este fondo, por debajo del 4,5:1 que WCAG
+   AA exige a texto de 11px. --nx-warn-ink da 5,63:1. */
+.verify-bar-expiry.is-warning {
+  color: var(--nx-warn-ink);
+  font-weight: 700;
+}
+
+/* Caducado: mismo salto de severidad que el mensaje de error de la barra. */
+.verify-bar-expiry.is-expired {
+  color: var(--nx-fail-ink);
+  font-weight: 700;
+}
+
+/* ---------- Contador de códigos de esta hora ----------
+   No cambia por segundo (solo cuando se pide un código), pero se reserva el
+   ancho igual: es el mismo contrato de "nada que dependa del tiempo" que el
+   resto de la banda. Medido a label-sm, "Has pedido 1 de 5 códigos esta hora"
+   ocupa 186,73px y con .tnum mide lo mismo con cualquier cifra ("2" idéntica
+   a "1"); se reservan 12rem (192px) para que tampoco dependa del número. */
+.verify-bar-codes {
+  color: var(--nx-ink-2);
+  white-space: nowrap;
+  min-width: 12rem;
+}
+
+/* Las casillas de la barra son compactas: el código completo se ve de un
+   vistazo sin robar altura a una franja que está siempre en pantalla. */
+.verify-bar .auth-otp-boxes {
+  gap: 0.375rem;
+}
+
+.verify-bar .auth-otp-box {
+  max-width: 2.25rem;
+  height: 2.5rem;
+  font-size: 18px;
+}
+
+/* Las 6 casillas y los 2 botones no caben en una línea: en móvil la barra
+   pasa a columna (texto arriba, formulario abajo) y crece; el alto real lo
+   mide el componente, aquí solo está el mínimo de diseño. */
+@media (max-width: 640px) {
+  .verify-bar {
+    min-height: 7rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--nx-space-sm);
+    padding: 0.5rem 1rem;
+  }
+
+  .verify-bar-main {
+    flex: 1 1 auto;
+  }
+
+  .verify-bar-form,
+  .verify-bar-actions,
+  .verify-bar-msg {
+    width: 100%;
+  }
+}
